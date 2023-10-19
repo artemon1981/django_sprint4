@@ -7,7 +7,6 @@ from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.views.generic import (CreateView,
@@ -63,11 +62,15 @@ class PostDetailView(DetailView):
 
     def dispatch(self, request, *args, **kwargs):
         """Переопределение dispatch."""
-        instance = get_object_or_404(Post, pk=kwargs['pk'])
-        if (not instance.is_published
+        instance = get_object_or_404(Post.objects.
+                                     select_related('category',
+                                                    'location',
+                                                    'author'),
+                                     pk=kwargs['pk'])
+        if ((not instance.is_published
             or not instance.category.is_published
-            or instance.pub_date > timezone.now()) \
-                and instance.author != request.user:
+            or instance.pub_date > timezone.now())
+                and (instance.author != request.user)):
             raise Http404()
         return super().dispatch(request, *args, **kwargs)
 
@@ -171,7 +174,11 @@ class PostUpdateView(PostMixin, LoginRequiredMixin, UpdateView):
 
     def dispatch(self, request, *args, **kwargs):
         """Переопределение dispatch."""
-        self.post_obj = get_object_or_404(Post, pk=kwargs['pk'])
+        self.post_obj = get_object_or_404(Post.objects.
+                                          select_related('category',
+                                                         'location',
+                                                         'author'),
+                                          pk=kwargs['pk'])
         if self.post_obj.author != self.request.user:
             return redirect('blog:post_detail', pk=self.post_obj.pk)
         return super().dispatch(request, *args, **kwargs)
@@ -194,10 +201,13 @@ class PostDeleteView(LoginRequiredMixin, DeleteView):
 
     def dispatch(self, request, *args, **kwargs):
         """Переопределение dispatch."""
-        instance = get_object_or_404(Post, pk=kwargs['pk'])
+        instance = get_object_or_404(Post.objects.
+                                     select_related('category',
+                                                    'location',
+                                                    'author'),
+                                     pk=kwargs['pk'])
         if instance.author != request.user:
             raise PermissionDenied
-        return super().dispatch(request, *args, **kwargs)
         return super().dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
@@ -210,7 +220,11 @@ class CommentCreateView(CommentMixin, LoginRequiredMixin, CreateView):
 
     def dispatch(self, request, *args, **kwargs):
         """Переопределение dispatch."""
-        self.post_obj = get_object_or_404(Post, pk=kwargs['pk'])
+        self.post_obj = get_object_or_404(Post.objects.
+                                          select_related('category',
+                                                         'location',
+                                                         'author'),
+                                          pk=kwargs['pk'])
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
